@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Probability Tree with Cumulative Values</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    
+    h2 {
+      background-color: #e3f2fd;
+      padding: 12px;
+      border-radius: 8px;
+      color: #0d47a1;
+      text-align: center;
+    }
+
+    button {
+      background-color: #2196f3;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      margin: 6px 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background-color: #1976d2;
+    }
+
+    .tree-container {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 20px;
+    }
+
+    svg {
+      border: 1px solid #ccc;
+    }
+
+    input {
+      width: 60px;
+      margin-right: 5px;
+    }
+
+    .node-circle { stroke: black; stroke-width: 1; }
+    .node-text { font-size: 14px; fill: black; }
+    .start-node { fill: #2196F3; }
+    .stage-node { fill: #4caf50; }
+  </style>
+</head>
+<body>
+  <h2>Dynamic Probability Tree with Cumulative Values</h2>
+  <button onclick="addRootNode()">Add Root Node</button>
+  <div id="root-nodes"></div>
+  <br/>
+  <button onclick="drawTree()">Generate Tree</button>
+  <div class="tree-container">
+    <svg id="tree" width="2000" height="1000"></svg>
+  </div>
+
+  <script>
+    let nodeIdCounter = 0;
+    const treeData = [];
+
+    function addRootNode() {
+      const node = createNode();
+      treeData.push(node);
+      renderInputNodes();
+    }
+
+    function createNode(name = "E", prob = 1.0) {
+      return {
+        id: `node-${nodeIdCounter++}`,
+        name,
+        prob,
+        children: []
+      };
+    }
+
+    function renderInputNodes() {
+      const container = document.getElementById('root-nodes');
+      container.innerHTML = '';
+      treeData.forEach(node => {
+        container.appendChild(buildNodeInput(node));
+      });
+    }
+
+    function buildNodeInput(node, depth = 0) {
+      const div = document.createElement('div');
+      div.style.marginLeft = `${depth * 40}px`;
+
+      div.innerHTML = `
+        <span>ID: ${node.id}</span> 
+        Name: <input type="text" value="${node.name}" onchange="updateNodeName('${node.id}', this.value)" />
+        Prob: <input type="number" step="0.01" value="${node.prob}" onchange="updateNodeProb('${node.id}', this.value)" />
+        <button onclick="addChildNode('${node.id}')">Add Child</button>
+      `;
+
+      node.children.forEach(child => {
+        div.appendChild(buildNodeInput(child, depth + 1));
+      });
+
+      return div;
+    }
+
+    function updateNodeName(id, value) {
+      const node = findNodeById(treeData, id);
+      if (node) node.name = value;
+    }
+
+    function updateNodeProb(id, value) {
+      const node = findNodeById(treeData, id);
+      if (node) node.prob = parseFloat(value);
+    }
+
+    function addChildNode(parentId) {
+      const parent = findNodeById(treeData, parentId);
+      if (parent) {
+        parent.children.push(createNode(`E${parent.children.length + 1}`, 0.5));
+        renderInputNodes();
+      }
+    }
+
+    function findNodeById(nodes, id) {
+      for (const node of nodes) {
+        if (node.id === id) return node;
+        const found = findNodeById(node.children, id);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    function drawTree() {
+      const svg = document.getElementById("tree");
+      svg.innerHTML = "";
+
+      let xOffset = 0;
+      const ySpacing = 120;
+
+      treeData.forEach(root => {
+        const { width } = calculateWidth(root);
+        const centerX = xOffset + width / 2;
+        drawSubtree(svg, root, centerX, 50, xOffset, ySpacing, 1.0); // Start with cumulative prob = 1.0
+        xOffset += width + 100;
+      });
+    }
+
+    function calculateWidth(node) {
+      if (node.children.length === 0) return { width: 100 };
+      let width = 0;
+      node.children.forEach(child => {
+        width += calculateWidth(child).width;
+      });
+      return { width: Math.max(width, 100) };
+    }
+
+    function drawSubtree(svg, node, x, y, xStart, ySpacing, cumProb) {
+      const newCumProb = cumProb * node.prob;
+      const isLeaf = node.children.length === 0;
+      const label = isLeaf ? `${node.name}\n(${node.prob})\nP=${newCumProb.toFixed(4)}` : `${node.name}\n(${node.prob})`;
+
+      drawNode(svg, x, y, label, node.id === "node-0" ? "start-node" : "stage-node");
+
+      const totalWidth = calculateWidth(node).width;
+      let childXStart = x - totalWidth / 2;
+
+      node.children.forEach(child => {
+        const childWidth = calculateWidth(child).width;
+        const childX = childXStart + childWidth / 2;
+        const childY = y + ySpacing;
+
+        drawLine(svg, x, y, childX, childY);
+        drawSubtree(svg, child, childX, childY, childXStart, ySpacing, newCumProb);
+        childXStart += childWidth;
+      });
+    }
+
+    function drawLine(svg, x1, y1, x2, y2) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1 + 20);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2 - 20);
+      line.setAttribute("stroke", "black");
+      svg.appendChild(line);
+    }
+
+    function drawNode(svg, x, y, text, nodeClass) {
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", x);
+      circle.setAttribute("cy", y);
+      circle.setAttribute("r", 20);
+      circle.setAttribute("class", `node-circle ${nodeClass}`);
+      svg.appendChild(circle);
+
+      const lines = text.split("\n");
+      lines.forEach((line, i) => {
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", x);
+        t.setAttribute("y", y - 10 + i * 14);
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("class", "node-text");
+        t.textContent = line;
+        svg.appendChild(t);
+      });
+    }
+  </script>
+</body>
+</html>
