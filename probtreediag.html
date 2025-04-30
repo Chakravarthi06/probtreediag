@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <h1>
+    <title>Probability Tree Diagram Generator</title>
+    
+  </h1>
+  <!-- <title>Probability Tree Diagram Generator</title> -->
+  <style>
+    body { font-family: sans-serif; margin: 30px; }
+    .tree-container { width: 100%; overflow-x: auto; margin-top: 20px; }
+    svg { border: 1px solid #ccc; }
+    input { width: 50px; }
+    .node-circle { stroke: black; stroke-width: 1; }
+    .node-text { font-size: 14px; fill: black; }
+    .start-node { fill: #2196F3; }
+    .stage1-node { fill: #4caf50; }
+    .stage2-node { fill: #ccef4b; }
+  </style>
+</head>
+<body>
+  <h2>Probability Tree Diagram Generator (2-Stage)</h2>
+
+  <div>
+    <h4>Stage 1 Events:</h4>
+    Event A: <input type="text" id="s1e1" value="A" />
+    Probability: <input type="number" step="0.01" id="s1p1" value="0.5" />
+    <br />
+    Event B: <input type="text" id="s1e2" value="B" />
+    Probability: <input type="number" step="0.01" id="s1p2" value="0.5" />
+  </div>
+
+  <div>
+    <h4>Stage 2 Events (after A):</h4>
+    A1: <input type="text" id="s2ae1" value="X" />
+    Prob: <input type="number" step="0.01" id="s2ap1" value="0.6" />
+    <br />
+    A2: <input type="text" id="s2ae2" value="Y" />
+    Prob: <input type="number" step="0.01" id="s2ap2" value="0.4" />
+  </div>
+
+  <div>
+    <h4>Stage 2 Events (after B):</h4>
+    B1: <input type="text" id="s2be1" value="X" />
+    Prob: <input type="number" step="0.01" id="s2bp1" value="0.3" />
+    <br />
+    B2: <input type="text" id="s2be2" value="Y" />
+    Prob: <input type="number" step="0.01" id="s2bp2" value="0.7" />
+  </div>
+
+  <br />
+  <button onclick="drawTree()">Generate Tree</button>
+
+  <div class="tree-container">
+    <svg id="tree" width="800" height="600"></svg>
+  </div>
+
+  <script>
+    function drawTree() {
+      const svg = document.getElementById("tree");
+      svg.innerHTML = "";
+
+      const getInput = id => document.getElementById(id).value;
+      const parse = id => parseFloat(getInput(id));
+
+      const s1 = [
+        { name: getInput("s1e1"), prob: parse("s1p1") },
+        { name: getInput("s1e2"), prob: parse("s1p2") }
+      ];
+
+      const s2 = {
+        A: [
+          { name: getInput("s2ae1"), prob: parse("s2ap1") },
+          { name: getInput("s2ae2"), prob: parse("s2ap2") }
+        ],
+        B: [
+          { name: getInput("s2be1"), prob: parse("s2bp1") },
+          { name: getInput("s2be2"), prob: parse("s2bp2") }
+        ]
+      };
+
+      const startX = 400, startY = 50;
+      const dy = 150;
+      const dx = 160; // Increased horizontal spacing between sibling nodes
+
+      drawNode(svg, startX, startY, "Start", 'start-node');
+
+      const firstLevel = [
+        { data: s1[0], label: "A", x: startX - dx, y: startY + dy },
+        { data: s1[1], label: "B", x: startX + dx, y: startY + dy }
+      ];
+
+      firstLevel.forEach(({ data, label, x, y }, i) => {
+        drawLine(svg, startX, startY, x, y);
+        drawNode(svg, x, y, `${data.name}\\n(${data.prob})`, 'stage1-node');
+
+        const secondLevel = s2[label].map((second, j) => {
+          const offset = dx / 2;
+          const x2 = j === 0 ? x - offset : x + offset;
+          const y2 = y + dy;
+          return { ...second, x: x2, y: y2 };
+        });
+
+        secondLevel.forEach((second, j) => {
+          drawLine(svg, x, y, second.x, second.y);
+          drawNode(svg, second.x, second.y, `${second.name}\\n(${second.prob})\\nP=${(data.prob * second.prob).toFixed(3)}`, 'stage2-node');
+        });
+      });
+    }
+
+    function drawLine(svg, x1, y1, x2, y2) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      line.setAttribute("stroke", "black");
+      svg.appendChild(line);
+    }
+
+    function drawNode(svg, x, y, text, nodeClass) {
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", x);
+      circle.setAttribute("cy", y);
+      circle.setAttribute("r", 20);
+      circle.setAttribute("class", `node-circle ${nodeClass}`);
+      svg.appendChild(circle);
+
+      const lines = text.split("\\n");
+      lines.forEach((line, i) => {
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", x);
+        t.setAttribute("y", y - 10 + i * 14);
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("class", "node-text");
+        t.textContent = line;
+        svg.appendChild(t);
+      });
+    }
+  </script>
+</body>
+</html>
